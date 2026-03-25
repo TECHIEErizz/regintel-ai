@@ -2,11 +2,11 @@ from fastapi import APIRouter, UploadFile, File
 import os
 import shutil
 
+from app.services.pdf_service import extract_text_from_pdf
+
 router = APIRouter()
 
 UPLOAD_DIR = "uploads"
-
-# Ensure uploads folder exists
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 
@@ -19,18 +19,21 @@ async def upload_documents(
         old_path = os.path.join(UPLOAD_DIR, old_doc.filename)
         new_path = os.path.join(UPLOAD_DIR, new_doc.filename)
 
-        # Save old document
+        # Save files
         with open(old_path, "wb") as buffer:
             shutil.copyfileobj(old_doc.file, buffer)
 
-        # Save new document
         with open(new_path, "wb") as buffer:
             shutil.copyfileobj(new_doc.file, buffer)
 
+        # 🔥 Extract text
+        old_text = extract_text_from_pdf(old_path)
+        new_text = extract_text_from_pdf(new_path)
+
         return {
-            "message": "Files uploaded successfully",
-            "old_file": old_path,
-            "new_file": new_path
+            "message": "Files processed successfully",
+            "old_text_preview": old_text[:500],
+            "new_text_preview": new_text[:500]
         }
 
     except Exception as e:
