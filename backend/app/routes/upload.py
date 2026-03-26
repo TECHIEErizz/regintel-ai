@@ -13,6 +13,10 @@ router = APIRouter()
 UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
+def build_context(chunks, limit=3000):
+    text = "\n\n".join(chunks)
+    return text[:limit]
+
 
 @router.post("/upload-documents")
 async def upload_documents(
@@ -54,15 +58,15 @@ async def upload_documents(
         # =========================
         # 4. RETRIEVE CONTEXT (RAG)
         # =========================
-        old_context = "\n\n".join(
+        old_context = build_context(
             retrieve_with_metadata("key regulatory clauses", "old_regulation")
         )
 
-        new_context = "\n\n".join(
+        new_context = build_context(
             retrieve_with_metadata("latest regulatory changes", "new_regulation")
         )
 
-        policy_context = "\n\n".join(
+        policy_context = build_context(
             retrieve_with_metadata("internal compliance rules", "internal_policy")
         )
 

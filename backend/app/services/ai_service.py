@@ -30,6 +30,9 @@ STRICT INSTRUCTIONS:
 - Avoid vague statements
 - Order actions logically
 - Base actions on SOURCE-backed evidence
+- DO NOT generate new interpretations
+- ONLY extract from given text
+- If unsure, return empty
 
 Return ONLY valid JSON:
 
@@ -66,7 +69,7 @@ IMPACT:
               "content": prompt
             }
           ],
-          temperature=0.2
+          temperature=0.0
         )
 
         content = response.choices[0].message.content
@@ -87,6 +90,9 @@ STRICT INSTRUCTIONS:
 - Assign realistic risk level
 - Be concise and structured
 - MUST reference SOURCE tags where relevant
+- DO NOT generate new interpretations
+- ONLY extract from given text
+- If unsure, return empty
 
 Return ONLY valid JSON:
 
@@ -118,7 +124,7 @@ TEXT (WITH SOURCES):
               "content": prompt
             }
           ],
-          temperature=0.2
+          temperature=0.0
         )
 
         content = response.choices[0].message.content
@@ -141,6 +147,9 @@ STRICT RULES:
 - DO NOT hallucinate
 - MUST reference SOURCE tags in "summary"
 - Focus only on meaningful regulatory changes (ignore formatting)
+- DO NOT generate new interpretations
+- ONLY extract from given text
+- If unsure, return empty
 
 Return ONLY valid JSON:
 
@@ -176,7 +185,7 @@ NEW CONTEXT:
                     "content": prompt
                 }
             ],
-            temperature=0.1
+            temperature=0.0
         )
 
         content = response.choices[0].message.content
@@ -199,6 +208,9 @@ STRICT RULES:
 - MUST reference SOURCE tags
 - DO NOT list general rules
 - LIMIT to top 5 critical gaps
+- DO NOT generate new interpretations
+- ONLY extract from given text
+- If unsure, return empty
 
 Return JSON:
 
@@ -226,7 +238,7 @@ POLICY:
                 {"role": "system", "content": "Return ONLY valid JSON"},
                 {"role": "user", "content": prompt}
             ],
-            temperature=0.1
+            temperature=0.0
         )
 
         content = response.choices[0].message.content
