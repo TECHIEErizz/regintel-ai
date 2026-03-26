@@ -25,8 +25,12 @@ export default function Dashboard() {
       return;
     }
 
-    const stored = localStorage.getItem("analysisData");
-    if (stored) setData(JSON.parse(stored));
+    fetch("http://localhost:8000/tasks")
+    .then((res) => res.json())
+    .then((tasks) => {
+      const completed = tasks.find(t => t.status === "completed");
+      if (completed) setData(completed.result);
+    });
   }, [router]);
 
   if (!data) return (
@@ -216,4 +220,4 @@ export default function Dashboard() {
       </div>
     </div>
   );
-}
+}

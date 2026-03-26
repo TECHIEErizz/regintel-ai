@@ -1,105 +1,77 @@
-from fastapi import APIRouter, UploadFile, File
 import os
+import uuid
 import shutil
+from fastapi import APIRouter, UploadFile, File, BackgroundTasks
+from db.database import get_task
+from fastapi import HTTPException
 
-from app.services.pdf_service import extract_text_from_pdf
-from app.services.ai_service import detect_changes, analyze_impact, generate_actions, detect_compliance_gaps
-
-from app.rag.pipeline import process_document
-from app.rag.retriever import retrieve_with_metadata
+from db.database import create_task
+from app.services.task_worker import process_task
+from db.database import get_all_tasks
 
 router = APIRouter()
+
+@router.get("/tasks")
+def get_tasks():
+    return get_all_tasks()
+
+@router.get("/status/{task_id}")
+def get_status(task_id: str):
+    task = get_task(task_id)
+
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    return {
+        "task_id": task["task_id"],
+        "status": task["status"],
+        "result": task["result"]
+    } 
 
 UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
-def build_context(chunks, limit=3000):
-    text = "\n\n".join(chunks)
-    return text[:limit]
-
 
 @router.post("/upload-documents")
 async def upload_documents(
+    background_tasks: BackgroundTasks,
     old_file: UploadFile = File(...),
     new_file: UploadFile = File(...),
     policy_file: UploadFile = File(...)
 ):
-    try:
-        # =========================
-        # 1. SAVE FILES
-        # =========================
-        old_path = os.path.join(UPLOAD_DIR, old_file.filename)
-        new_path = os.path.join(UPLOAD_DIR, new_file.filename)
-        policy_path = os.path.join(UPLOAD_DIR, policy_file.filename)
+    # ✅ 1. Generate task_id
+    task_id = str(uuid.uuid4())
 
-        with open(old_path, "wb") as buffer:
-            shutil.copyfileobj(old_file.file, buffer)
+    # ✅ 2. Save files
+    old_path = os.path.join(UPLOAD_DIR, f"{task_id}_old.pdf")
+    new_path = os.path.join(UPLOAD_DIR, f"{task_id}_new.pdf")
+    policy_path = os.path.join(UPLOAD_DIR, f"{task_id}_policy.pdf")
 
-        with open(new_path, "wb") as buffer:
-            shutil.copyfileobj(new_file.file, buffer)
+    with open(old_path, "wb") as buffer:
+        shutil.copyfileobj(old_file.file, buffer)
 
-        with open(policy_path, "wb") as buffer:
-            shutil.copyfileobj(policy_file.file, buffer)
+    with open(new_path, "wb") as buffer:
+        shutil.copyfileobj(new_file.file, buffer)
 
-        # =========================
-        # 2. EXTRACT TEXT
-        # =========================
-        old_text = extract_text_from_pdf(old_path)
-        new_text = extract_text_from_pdf(new_path)
-        policy_text = extract_text_from_pdf(policy_path)
+    with open(policy_path, "wb") as buffer:
+        shutil.copyfileobj(policy_file.file, buffer)
 
-        # =========================
-        # 3. STORE IN VECTOR DB (RAG)
-        # =========================
-        process_document(old_text, "old_regulation")
-        process_document(new_text, "new_regulation")
-        process_document(policy_text, "internal_policy")
+    # ✅ 3. Create DB task
+    create_task(task_id)
 
-        # =========================
-        # 4. RETRIEVE CONTEXT (RAG)
-        # =========================
-        old_context = build_context(
-            retrieve_with_metadata("key regulatory clauses", "old_regulation")
-        )
-
-        new_context = build_context(
-            retrieve_with_metadata("latest regulatory changes", "new_regulation")
-        )
-
-        policy_context = build_context(
-            retrieve_with_metadata("internal compliance rules", "internal_policy")
-        )
-
-        # =========================
-        # 5. AI INTELLIGENCE
-        # =========================
-
-        # 🔥 Detect changes (Old vs New)
-        changes = detect_changes(old_context, new_context)
-
-        # 🔥 Detect compliance gaps (New vs Policy)
-        compliance_gaps = detect_compliance_gaps(new_context, policy_context)
-
-        # 🔥 Impact analysis
-        impact = analyze_impact(
-            str(changes) + "\n" + str(compliance_gaps)
-        )
-
-        # 🔥 Action generation
-        actions = generate_actions(
-            str(changes),
-            str(impact) + "\n" + str(compliance_gaps)
-        )
-
-        # =========================
-        # 6. RESPONSE
-        # =========================
-        return {
-            "changes": changes,
-            "compliance_gaps": compliance_gaps,
-            "impact": impact,
-            "actions": actions
+    # ✅ 4. Start background task
+    background_tasks.add_task(
+        process_task,
+        task_id,
+        {
+            "old": old_path,
+            "new": new_path,
+            "policy": policy_path
         }
+    )
 
-    except Exception as e:
-        return {"error": str(e)}
+    # ✅ 5. Instant response
+    return {
+        "task_id": task_id,
+        "status": "processing"
+    }

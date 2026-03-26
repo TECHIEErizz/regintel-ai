@@ -29,50 +29,77 @@ export default function UploadPage() {
     };
 
     const handleSubmit = async () => {
-        if (!oldFile || !newFile || !policyFile) {
-            alert("Please upload Old Regulation, New Regulation, and Internal Policy.");
-            return;
-        }
+    if (!oldFile || !newFile || !policyFile) {
+        alert("Please upload Old Regulation, New Regulation, and Internal Policy.");
+        return;
+    }
 
-        setLoading(true);
+    setLoading(true);
+    setProgress(10);
 
-        // Fake progress animation
-        const interval = setInterval(() => {
-            setProgress((prev) => {
-                if (prev >= 90) return 90;
-                return prev + Math.floor(Math.random() * 10);
-            });
-        }, 300);
+    try {
+        const formData = new FormData();
+        formData.append("old_file", oldFile);
+        formData.append("new_file", newFile);
+        formData.append("policy_file", policyFile);
 
-        try {
-            console.log("Starting upload...", { oldFile, newFile, policyFile });
-            const data = await uploadDocuments(oldFile, newFile, policyFile);
-            console.log("Upload successful:", data);
+        const res = await fetch("http://localhost:8000/upload-documents", {
+            method: "POST",
+            body: formData,
+        });
 
+        const data = await res.json();
+
+        console.log("Task ID:", data.task_id);
+
+        //  Start polling
+        pollStatus(data.task_id);
+
+    } catch (err) {
+        console.error("Upload failed:", err);
+        alert("Error uploading files: " + err.message);
+        setLoading(false);
+        setProgress(0);
+    }
+};
+async function pollStatus(taskId) {
+    const interval = setInterval(async () => {
+        const res = await fetch(`http://localhost:8000/status/${taskId}`);
+        const data = await res.json();
+
+        console.log("STATUS:", data.status);
+
+        //  Smart progress 
+        setProgress((prev) => {
+            if (data.status === "processing") {
+                if (prev < 30) return prev + 5;        // extracting
+                if (prev < 60) return prev + 3;        // analyzing
+                if (prev < 85) return prev + 2;        // generating
+                return prev;
+            }
+            return prev;
+        });
+
+        if (data.status === "completed") {
             clearInterval(interval);
+
             setProgress(100);
 
-            if (data.error) {
-                alert("Backend Error: " + data.error);
-                setLoading(false);
-                setProgress(0);
-                return;
-            }
+            localStorage.setItem("analysisData", JSON.stringify(data.result));
 
-            // Small delay to show 100% completion before redirect
             setTimeout(() => {
-                localStorage.setItem("analysisData", JSON.stringify(data));
                 router.push("/dashboard");
             }, 800);
-            
-        } catch (err) {
-            clearInterval(interval);
-            setProgress(0);
-            console.error("Upload failed:", err);
-            alert("Error uploading files: " + err.message);
-            setLoading(false);
         }
-    };
+
+        if (data.status === "failed") {
+            clearInterval(interval);
+            alert("Processing failed");
+            setLoading(false);
+            setProgress(0);
+        }
+    }, 2000);
+}
 
     if (!user) return null;
 
