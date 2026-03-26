@@ -1,7 +1,7 @@
 export default function ImpactCard({ title, items = [] }) {
   return (
-    <div className="mb-4">
-      <h3 className="text-sm font-medium text-gray-700 mb-2">
+    <div className="mb-6">
+      <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3 ml-1">
         {title}
       </h3>
 
@@ -10,13 +10,13 @@ export default function ImpactCard({ title, items = [] }) {
           items.map((item, idx) => (
             <span
               key={idx}
-              className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm"
+              className="px-4 py-1.5 bg-violet-600/10 border border-violet-500/20 text-violet-400 rounded-full text-xs font-semibold"
             >
               {item}
             </span>
           ))
         ) : (
-          <span className="text-gray-400">No impact</span>
+          <span className="text-slate-600 text-sm italic ml-1">No direct impact found</span>
         )}
       </div>
     </div>
